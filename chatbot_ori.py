@@ -6,19 +6,18 @@ import my_classifier
 import re
 import warnings
 import random
-import time
 warnings.filterwarnings('ignore')
 
 transitions = [
-    { 'trigger': 'acquireCardDetails', 'source': 'getUserDetails', 'dest': 'getCardDetails', 'conditions':'is_userDetailsAcquired'},
-    { 'trigger': 'receivePayment', 'source': 'getCardDetails', 'dest': 'getPayment', 'conditions' : 'is_cardDetailsAcquired'},
-    { 'trigger': 'processOrder', 'source': 'getPayment', 'dest': 'placeOrder', 'conditions' : 'is_paymentReceived'},
-    { 'trigger': 'processOrder', 'source': 'getPayment', 'dest': 'getCardDetails', 'conditions' : 'is_paymentReceivedFailed'},
-    { 'trigger': 'finalizeProcess', 'source': 'placeOrder', 'dest': 'finish', 'conditions' : 'is_orderPlaced'},
-    { 'trigger': 'finalizeProcess', 'source': 'placeOrder', 'dest': 'deadState', 'conditions' : 'is_orderFailed'},
-    { 'trigger': 'acquireUserDetails', 'source': 'initialState', 'dest': 'getUserDetails', 'conditions' : 'should_moveToRecharge'}
+    { 'trigger': 'userDetailsAcquired', 'source': 'getUserDetails', 'dest': 'getCardDetails', 'conditions':'is_userDetailsAcquired'},
+    { 'trigger': 'cardDetailsAcquired', 'source': 'getCardDetails', 'dest': 'getPayment', 'conditions' : 'is_cardDetailsAcquired'},
+    { 'trigger': 'paymentReceived', 'source': 'getPayment', 'dest': 'placeOrder', 'conditions' : 'is_paymentReceived'},
+    { 'trigger': 'orderPlaced', 'source': 'placeOrder', 'dest': 'finish', 'conditions' : 'is_orderPlaced'},
+    { 'trigger': 'orderPlaced', 'source': 'placeOrder', 'dest': 'deadState', 'conditions' : 'is_orderFailed'},
+    { 'trigger': 'moveToRecharge', 'source': 'initialState', 'dest': 'getUserDetails', 'conditions' : 'should_moveToRecharge'}
     ]
 
+#states=['getUserDetails','getCardDetails','deadState','receivePayment','placeOrder','finish']
 
 states = [
 	State(name='getUserDetails',on_exit=['exit_state_getUserDetails'],on_enter=['get_user_details']),
@@ -26,13 +25,13 @@ states = [
 	State(name='getPayment',on_exit=['exit_state_getPayment'],on_enter=['process_payment']),
 	State(name='placeOrder',on_exit=['exit_state_placeOrder'],on_enter=['place_order']),
 	State(name='finish',on_exit=['exit_state_finish'],on_enter=['display_success']),
-	State(name='deadStateOfOrder',on_enter=['display_error_message_order']),
+	State(name='deadState',on_enter=['display_error_message']),
 	State(name='initialState',on_enter=['initialStateFunction'],on_exit=['display_process_start_message']),
 	State(name='dummyState',on_exit=['display_dummy_message'])
 	]
 
 user_string = "recharge my number 9868627741 for rs 100"
-mobile_regex = "\b((\+){0,1}91(\s){0,1}(\-){0,1}(\s){0,1}){0,1}[789][0-9](\s){0,1}(\-){0,1}(\s){0,1}[1-9]{1}[0-9]{7}\b"
+mobile_regex = "(\b((\+){0,1}91(\s){0,1}(\-){0,1}(\s){0,1}){0,1}[789][0-9](\s){0,1}(\-){0,1}(\s){0,1}[1-9]{1}[0-9]{7}\b)"
 recharge_amount_regex = "\b[1-9][0-9]{1,4}(.){0,1}0*?\b"
 cvv_regex = "\b[1-9][0-9]{2}\b"
 expiration_regex = "\b(0[1-9]|1[0-2])\/?([0-9]{4}|[0-9]{2})\b"
@@ -53,7 +52,6 @@ class SimpleFSM(object):
 		#self.circle = None
 		self.rechargeAmount = None
 		self.did_we_receive_payment = False
-		self.did_we_place_order = False
 		self.operators = ['airtel','idea','vodafone']
 		self.cardNumber = None
 		self.cvv = None
@@ -72,7 +70,6 @@ class SimpleFSM(object):
 			reply_class = 1
 			if reply_class == 1:
 				self.move_to_recharge = True
-				self.acquireUserDetails()
 
 
 	def get_user_details(self):
@@ -82,32 +79,15 @@ class SimpleFSM(object):
 			while(self.mobileNo is None and self.connectionType is None and self.rechargeAmount is None and self.operator is None):
 				self.mobileNo = re.findall(mobile_regex,user_reply)
 				self.rechargeAmount = re.findall(recharge_amount_regex,user_reply)
-				self.operator = list(set(word_tokenize(user_reply)) & set(self.operators))
 				if self.connectionType == None:
-					self.connectionType = input("Is this a prepaid or a postpaid number?\n").lower()
-				if not self.operator:
+					self.connectionType = input("Is this a prepaid or a postpaid number sir?\n").lower()
+				if not list(set(word_tokenize(user_reply)) & set(self.operators)):
 					print("Oops sir u forgot to mention your operator\n")
-					tel_operator = input("Please enter name of your telecom operator\n").lower()
-					try:
-						self.operator = list(set(word_tokenize(tel_operator)) & set(self.operators))[0]
-					except:
-						print("Unable to take operator as input")
+					tel_operator = input("Please enter name of your telecom operator\n")
+					self.operator = list(set(word_tokenize(tel_operator)) & set(self.operators))[0]
 				if not self.mobileNo:
 					user_mobileNo = input("Oops sir u forgot to mention your mobile no. please enter your mobile no\n").lower()
-					try:
-						self.mobileNo = re.findall(mobile_regex,user_mobileNo)[0]
-					except:
-						print("Unable to take mobile no as input")
-				if not self.rechargeAmount:
-					recharge_amount = input("Whats the price of your recharge?\n").lower()
-					try:
-						self.rechargeAmount = re.findall(recharge_amount_regex,recharge_amount)[0]
-					except:
-						print("Unable to take recharge amount as input")
-				self.mobileNo = re.findall(mobile_regex,user_reply)[0]
-				self.rechargeAmount = re.findall(recharge_amount_regex,user_reply)[0]
-				self.operator = list(set(word_tokenize(user_reply)) & set(self.operators))[0]
-				self.acquireCardDetails() #state change trigger if true jump to next state
+					self.mobileNo = re.findall(mobile_regex,user_mobileNo)
 
 
 
@@ -115,49 +95,19 @@ class SimpleFSM(object):
 		user_card = input("Please enter your card number and cvv number and expiration date\n")
 		self.cardNumber = re.findall(card_number_regex,user_card)
 		self.expireDate = re.findall(expiration_regex,user_card)
-		self.cvv = re.findall(cvv_regex,user_card)
-		if not self.cardNumber:
-			card_number = input("Please enter your card number\n").lower()
-			try:
-				self.cardNumber = re.findall(card_number_regex,card_number)[0]
-			except:
-				print("Unable to take card number as input")
-		if not self.expireDate:
-			expire_data = input("Please enter your expire dater\n").lower()
-			try:
-				self.expireDate = re.findall(expiration_regex,expire_data)[0]
-			except:
-				print("Unable to take expire as input")
-		if not self.cvv:
-			cvv_number = input("Please enter your cvv number\n").lower()
-			try:
-				self.cvv = re.findall(cvv_regex,cvv_number)[0]
-			except:
-				print("Unable to take cvv number as input")
-		self.cardNumber = re.findall(card_number_regex,user_card)[0]
-		self.expireDate = re.findall(expiration_regex,user_card)[0]
-		self.cvv = re.findall(cvv_regex,user_card)[0]
-		self.receivePayment()
 
 
 	def process_payment(self):
 		print("Kindly wait sir we are processing your transaction\n")
-		time.sleep(3)
-		x = random.randint(0,1)
-		self.did_we_receive_payment = bool(x)
-		self.processOrder()
+		pass
 
 	def place_order(self):
-		print("We are placing your order, just hang on a minute\n")
-		time.sleep(3)
-		x = random.randint(0,1)
-		self.did_we_place_order = bool(x)
-		self.finalizeProcess()
+		print("We are placing your order sir, just hang on a minute\n")
 
 	def display_success(self):
 		print("Your recharge is successful")
 
-	def display_error_message_order(self):
+	def display_error_message(self):
 		print("recharge could not be completed please try again later\n")
 
 	######################################
@@ -181,8 +131,7 @@ class SimpleFSM(object):
 
 	def exit_state_getPayment(self):
 		print("Exiting getPayment Stage\n")
-		if self.is_paymentReceivedFailed():
-			print("Incorrect Card Credentials")
+		did_we_receive_payment = True
 
 	def exit_state_placeOrder(self):
 		print("Exiting placeOrder Stage\n")
@@ -202,30 +151,37 @@ class SimpleFSM(object):
 		return self.move_to_recharge
 
 	def is_userDetailsAcquired(self):
-		return (self.mobileNo is not None and self.rechargeAmount is not None and self.connectionType is not None and self.operator is not None) 
+		return (self.user_mobileNo and self.rechargeAmount and self.connectionType and self.operator)
 
 	def is_cardDetailsAcquired(self):
-		return (self.cardNumber is not None and self.expireDate is not None and self.cvv is not None)
+		return (self.cardNumber and self.expireDate and self.cvv)
 
 	def is_paymentReceived(self):
 		return self.did_we_receive_payment
 
-	def is_paymentReceivedFailed(self):
-		return not self.did_we_receive_payment
-
 	def is_orderPlaced(self):
-		return self.did_we_place_order
+		x = random.randint(0,1)
+		if x == 0:
+			return False
+		else:
+			return True
 
 	def is_orderFailed(self):
-		return not self.did_we_place_order
+		x = random.randint(0,1)
+		if x == 0:
+			return False
+		else:
+			return True
 
 
 if __name__ == "__main__":
 	fsm = SimpleFSM()
 	machine = Machine(fsm,states=states,transitions=transitions,initial='dummyState')
 	fsm.to_initialState()
-	fsm.acquireUserDetails
-	fsm.acquireCardDetails
-	fsm.receivePayment
-	fsm.placeOrder
+	#oh_my_god = ['getUserDetails()','getCardDetails()','getPayment()','placeOrder()','finish()']
+	fsm.to_getUserDetails()
+	fsm.to_getCardDetails()
+	fsm.to_getPayment()
+	fsm.to_placeOrder()
+	fsm.to_finish()
 	print("I am working")
