@@ -32,7 +32,6 @@ states = [
 	State(name='dummyState',on_exit=['display_dummy_message'])
 	]
 
-user_string = "recharge my number 9868627741 for rs 100"
 mobile_regex = r"\b((\+){0,1}91(\s){0,1}(\-){0,1}(\s){0,1}){0,1}[789][0-9](\s){0,1}(\-){0,1}(\s){0,1}[1-9]{1}[0-9]{7}\b"
 recharge_amount_regex = r"\b[1-9][0-9]{1,4}(.){0,1}0*?\b"
 cvv_regex = r"\b[1-9][0-9]{2}\b"
@@ -43,11 +42,12 @@ question_answers = {'what is your name':['My name is Monica, what"s your name?',
 					'how are you?': ['I am doing fine. What about you?','I am good','Its too hot here inside the processor'],
 					'who are you?' : ['I am just a an AI program','I am just simple bot'],
 					'no_operator' : ['Oops you forgot to enter your telecom operator.Please enter it.','Please enter your telecom operator','It seem you forgot to mention your telecom operator'],
-					'no_mobileNo' : ['Pleae mention your operator','I think you did not enter your mobile no'],
+					'no_mobileNo' : ['Pleae mention your mobile no.','I think you did not enter your mobile no'],
 					'no_card' : ['Please enter your credit card number','I cant find your card number pleae type it'],
 					'no_cvv' : ['Please enter your cvv number','It seems you forgot to mention your cvv number'],
 					'no_date' : ['Check your expiry date again','Please enter your expiry data in correct format.'],
-					'no_recharge_amount' : ['What should be the recharge amount?','For how much should we recharge your phone?']
+					'no_recharge_amount' : ['What should be the recharge amount?','For how much should we recharge your phone?'],
+					'random_question' : ['Hi there','Hello..','How can I help you?','What do you want me to do?','Do you want me to recharge your mobile?']
 					}
 
 class SimpleFSM(object):
@@ -65,6 +65,7 @@ class SimpleFSM(object):
 		self.cardNumber = None
 		self.cvv = None
 		self.expireDate = None
+		self.user_reply_of_recharge = None
 
 	######################################
 	# FUNCTIONS TO EXECUTE WHEN A MACHINE
@@ -74,17 +75,19 @@ class SimpleFSM(object):
 		self.move_to_recharge = False
 		while(not self.move_to_recharge):
 			#print(random.choice(question_answers['hi']))
-			#user_reply = input("How can help you?\n")
-			#reply_class = my_classifier.classify(user_reply)
-			reply_class = 1
+			user_reply = input(random.choice(question_answers['random_question']) + "\n")
+			reply_class = my_classifier.classify(user_reply)
+			#reply_class = 1
 			if reply_class == 1:
 				self.move_to_recharge = True
+				self.user_reply_of_recharge = user_reply
 				#self.acquireUserDetails()
 
 
 	def get_user_details(self):
-		user_reply = input("Hello Sir, How can I help you?\n")
+		#user_reply = input("Hello Sir, How can I help you?\n")
 		#recharge_request = my_classifier.classify(user_reply)
+		user_reply = self.user_reply_of_recharge
 		if self.move_to_recharge:
 			while(self.mobileNo is None or self.operator is None or self.connectionType is None or self.rechargeAmount is None):
 				try:
@@ -99,7 +102,7 @@ class SimpleFSM(object):
 					pass
 				try:
 					if self.operator is None:
-						self.operator = list(set(word_tokenize(user_reply)) & set(self.operators))
+						self.operator = list(set(word_tokenize(user_reply)) & set(self.operators))[0]
 				except:
 					pass
 					#print("Error in user details")
@@ -107,21 +110,21 @@ class SimpleFSM(object):
 					self.connectionType = input("Is this a prepaid or a postpaid number?\n").lower()
 				if not self.operator:
 					#print("Oops sir u forgot to mention your operator\n")
-					tel_operator = input(random.choice(question_answers['no_operator'])).lower()
+					tel_operator = input(random.choice(question_answers['no_operator']) + "\n").lower()
 					try:
 						self.operator = list(set(word_tokenize(tel_operator)) & set(self.operators))[0]
 					except:
 						#print("Unable to take operator as input")
 						pass
 				if not self.mobileNo:
-					user_mobileNo = input(random.choice(question_answers['no_mobileNo'])).lower()
+					user_mobileNo = input(random.choice(question_answers['no_mobileNo']) + "\n")
 					try:
 						self.mobileNo = re.search(mobile_regex,user_mobileNo).group()
 					except:
 						#print("Unable to take mobile no as input")
 						pass
 				if not self.rechargeAmount:
-					recharge_amount = input(random.choice(question_answers['no_recharge_amount'])).lower()
+					recharge_amount = input(random.choice(question_answers['no_recharge_amount']) + "\n").lower()
 					try:
 						self.rechargeAmount = re.search(recharge_amount_regex,recharge_amount).group()
 					except:
@@ -151,21 +154,21 @@ class SimpleFSM(object):
 				pass
 				#print("Error caught while taking card details")
 			if not self.cardNumber:
-				card_number = input(random.choice(question_answers['no_card'])).lower()
+				card_number = input(random.choice(question_answers['no_card']) + "\n").lower()
 				try:
 					self.cardNumber = re.search(card_number_regex,card_number).group()
 				except:
 					#print("Unable to take card number as input")
 					pass
 			if not self.expireDate:
-				expire_data = input(random.choice(question_answers['no_date'])).lower()
+				expire_data = input(random.choice(question_answers['no_date']) + "\n").lower()
 				try:
 					self.expireDate = re.search(expiration_regex,expire_data).group()
 				except:
 					#print("Unable to take expire as input")
 					pass
 			if not self.cvv:
-				cvv_number = input(random.choice(question_answers['no_cvv'])).lower()
+				cvv_number = input(random.choice(question_answers['no_cvv']) + "\n").lower()
 				try:
 					self.cvv = re.search(cvv_regex,cvv_number).group()
 				except:
@@ -199,39 +202,50 @@ class SimpleFSM(object):
 	######################################
 	# FUNCTIONS TO EXECUTE WHEN A MACHINE
 	# EXITS THE STATE
+	# MOST OF THEM WERE ONLY USED FOR DEBUGGING
 	######################################
 
 	def display_process_start_message(self):
-		print("recharge process is started\n")
+		print("Recharge process is started\n")
 
 	def exit_state_getUserDetails(self):
-		print("##"*10)
-		print(str(self.rechargeAmount))
-		print(str(self.connectionType))
-		print(str(self.operator))
-		print(str(self.mobileNo))
-		print("Exiting getUserDetails Stage\n")
+		pass
+		########
+		# THIS WAS JUST FOR TESTING
+		#######
+		#print("##"*10)
+		#print(str(self.rechargeAmount))
+		#print(str(self.connectionType))
+		#print(str(self.operator))
+		#print(str(self.mobileNo))
+		#print("Exiting getUserDetails Stage\n")
 
 	def exit_state_getCardDetails(self):
-		print("##"*10)
-		print(str(self.cardNumber))
-		print(str(self.cvv))
-		print(str(self.expireDate))
-		print("Exiting getCardDetails Stage\n")
+		pass
+		########
+		# THIS WAS JUST FOR TESTING
+		#######
+		#print("##"*10)
+		#print(str(self.cardNumber))
+		#print(str(self.cvv))
+		#print(str(self.expireDate))
+		#print("Exiting getCardDetails Stage\n")
 
 	def exit_state_getPayment(self):
-		print("Exiting getPayment Stage\n")
+		#print("Exiting getPayment Stage\n")
 		if self.is_paymentReceivedFailed():
 			print("Incorrect Card Credentials")
 
 	def exit_state_placeOrder(self):
-		print("Exiting placeOrder Stage\n")
+		pass
+		#print("Exiting placeOrder Stage\n")
 
 	def exit_state_finish(self):
-		print("Exiting finish Stage\n")
+		print("Happy Talking...\n")
 
 	def display_dummy_message(self):
-		print("Exiting dummy state and moving to intial state\n")
+		pass
+		#print("Exiting dummy state and moving to intial state\n")
 
 	######################################
 	# CONDITIONS TO CHECK BEFORE MOVING TO
